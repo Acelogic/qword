@@ -2,6 +2,7 @@ PREFIX =
 
 DBGOUT = no
 DBGSYM = no
+ACPI = yes
 
 CC = x86_64-qword-gcc
 AS = nasm
@@ -20,7 +21,8 @@ CHARDFLAGS := \
     -mcmodel=kernel \
     -ffreestanding \
     -fno-stack-protector \
-    -I./
+    -I./ \
+    -I./acpi/lai/include/
 
 ifeq ($(DBGOUT), tty)
 CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
@@ -32,6 +34,10 @@ endif
 
 ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
+endif
+
+ifeq ($(ACPI), yes)
+CHARDFLAGS := $(CHARDFLAGS) -D_ACPI_
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'

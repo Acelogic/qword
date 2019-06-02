@@ -9,13 +9,16 @@
 !/root/boot
 !/root/hello.c
 /root/etc/localtime
+/root/src/kernel/acpi/lai
 
 /**/*.tar.bz2
 /**/*.tar.gz
 /qword.iso
 /qword.img
+/qword.hdd
 
 /**/*.o
+/**/*.a
 /**/*.bin
 /**/*.elf
 

@@ -4,6 +4,7 @@
 #include <lib/klib.h>
 #include <misc/serial.h>
 #include <devices/display/vbe/vbe.h>
+#include <devices/term/tty/tty.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
 #include <sys/idt.h>
@@ -39,14 +40,14 @@ void kmain_thread(void *arg) {
     /* Initialise file descriptor handlers */
     init_fd();
 
-    /* Initialise device drivers */
-    init_dev();
-
     /* Initialise filesystem drivers */
     init_fs();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
+
+    /* Initialise device drivers */
+    init_dev();
 
     int tty = open("/dev/tty0", O_RDWR);
 
@@ -126,21 +127,21 @@ void kmain_thread(void *arg) {
 
 /* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(void) {
-    init_idt();
-
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
+    init_idt();
+
     /* Memory-related stuff */
     init_e820();
     init_pmm();
-    //init_alloc();
     init_rand();
     init_vmm();
 
-    /* Early inits */
-    early_init_vbe();
+    dump_vga_font(vga_font);
+    init_vbe();
+    init_tty();
 
     /* Time stuff */
     struct s_time_t s_time;
@@ -152,12 +153,8 @@ void kmain(void) {
                                 s_time.days, s_time.months, s_time.years);
     kprint(KPRN_INFO, "Current unix epoch: %U", unix_epoch);
 
-    dump_vga_font(vga_font);
-
-    flush_irqs();
-
     /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
-
+    flush_irqs();
     init_acpi();
     init_pic();
 
@@ -165,6 +162,14 @@ void kmain(void) {
 
     /* Enable interrupts on BSP */
     asm volatile ("sti");
+
+    // ACPI specification section 5.8.1 - we are using the APIC,
+    // so we need to be using mode 1 with the _PIC method.
+
+    // This function enables the use of lai functions inside qword
+    #ifdef _ACPI_
+      lai_enable_acpi(1);
+    #endif
 
     init_smp();
 
