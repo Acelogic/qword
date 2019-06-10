@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <lib/klib.h>
+#include <lib/cmdline.h>
 #include <acpi/acpi.h>
 #include <acpi/madt.h>
 #include <lai/core.h>
@@ -58,15 +59,17 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-    #ifdef _ACPI_
-      lai_create_namespace();
-    #endif
+
+    char *cmdline_val = cmdline_get_value("acpi");
+    if (!cmdline_val || !strcmp(cmdline_val, "enabled"))
+        lai_create_namespace();
 
     acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
     if (fadt) {
         uint16_t irq = fadt->sci_irq;
         void (*handlers[1])(int, struct regs_t *) = {sci_handler};
-        io_apic_set_mask(irq, 1, 1);
+        io_apic_set_mask(irq, irq, 1);
+
         int ret = register_isr((size_t)irq + 0x20, handlers, 1, 1, 0x8e);
     }
 
@@ -76,10 +79,13 @@ rsdp_found:
 void sci_handler(int num, struct regs_t *regs) {
     // Use lai to determine whether this irq was ACPI-related.
     uint16_t event = lai_get_sci_event();
-    kprint(KPRN_DBG, "acpi: SCI interrupt occured, event data 0x%04X, %s, %s, %s", event,
-            event & ACPI_POWER_BUTTON ? "The power button was pressed" : "",
-            event & ACPI_SLEEP_BUTTON ? "System sleep event occured" : "",
-            event & ACPI_WAKE ? "System woke up from sleep" : "");
+
+    const char *name = "?";
+    if (event & ACPI_POWER_BUTTON) name = "The power button was pressed.";
+    if (event & ACPI_SLEEP_BUTTON) name = "The sleep button was pressed";
+    if (event & ACPI_WAKE) name = "The system woke up from sleep";
+
+    kprint(KPRN_DBG, "acpi: SCI event occured: %X: %s", event, name);
 
     return;
 }
